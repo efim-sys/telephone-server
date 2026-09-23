@@ -1,1 +1,18 @@
+# Dependencies
+node_modules/
+
+# Media / runtime data
 songs/*
+*.log
+npm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
