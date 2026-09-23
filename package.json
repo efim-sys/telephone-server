@@ -1,0 +1,17 @@
+{
+  "name": "telephone-server",
+  "version": "0.1.0",
+  "description": "UDP call server and status dashboard for the DIY telephone project",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "client": "node client.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

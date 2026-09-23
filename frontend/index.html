@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Telephone Network Monitor</title>
+<style>
+    :root {
+        --bg: #0b0e14;
+        --bg-soft: #11151f;
+        --card: #151b29;
+        --card-hover: #1a2233;
+        --border: #232b3d;
+        --text: #e6ebf5;
+        --text-dim: #8b95ad;
+        --text-faint: #5a6378;
+
+        /* status colors */
+        --c-offline: #4b5563;
+        --c-offline-glow: rgba(75, 85, 99, 0.45);
+        --c-idle: #22c55e;
+        --c-idle-glow: rgba(34, 197, 94, 0.5);
+        --c-ready: #f59e0b;
+        --c-ready-glow: rgba(245, 158, 11, 0.5);
+        --c-talking: #ef4444;
+        --c-talking-glow: rgba(239, 68, 68, 0.6);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: "Inter", "SF Pro Display", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(900px 500px at 15% -10%, rgba(56, 89, 159, 0.18), transparent 60%),
+            radial-gradient(900px 500px at 110% 10%, rgba(159, 56, 104, 0.12), transparent 60%),
+            var(--bg);
+        min-height: 100vh;
+        padding: 32px clamp(16px, 4vw, 56px) 56px;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- header ---------- */
+    header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 26px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: grid; place-items: center;
+        font-size: 22px;
+        background: linear-gradient(135deg, #2b6ee0, #7c3aed);
+        box-shadow: 0 6px 20px rgba(90, 90, 240, 0.35);
+    }
+    .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.2px; }
+    .brand p { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+
+    .conn {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 12.5px; font-weight: 600;
+        padding: 7px 14px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-soft);
+        color: var(--text-dim);
+    }
+    .conn .pulse-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #64748b;
+    }
+    .conn.online { color: var(--c-idle); border-color: rgba(34,197,94,0.35); }
+    .conn.online .pulse-dot { background: var(--c-idle); box-shadow: 0 0 8px var(--c-idle-glow); }
+    .conn.offline { color: var(--c-talking); border-color: rgba(239,68,68,0.35); }
+    .conn.offline .pulse-dot { background: var(--c-talking); }
+
+    /* ---------- stats ---------- */
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        margin-bottom: 26px;
+    }
+    .stat {
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px 18px;
+        transition: border-color 0.2s;
+    }
+    .stat .stat-label {
+        font-size: 11.5px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.8px; color: var(--text-dim);
+        display: flex; align-items: center; gap: 7px;
+    }
+    .stat .stat-value { font-size: 26px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .stat .stat-value small { font-size: 14px; color: var(--text-dim); font-weight: 600; }
+    .stat .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .stat.total .dot { background: #64748b; }
+    .stat.online .dot { background: var(--c-idle); box-shadow: 0 0 8px var(--c-idle-glow); }
+    .stat.ready .dot { background: var(--c-ready); box-shadow: 0 0 8px var(--c-ready-glow); }
+    .stat.talking .dot { background: var(--c-talking); box-shadow: 0 0 8px var(--c-talking-glow); }
+
+    /* ---------- toolbar ---------- */
+    .toolbar {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+        gap: 14px; margin-bottom: 18px;
+    }
+    .search {
+        position: relative; flex: 1; min-width: 220px; max-width: 360px;
+    }
+    .search input {
+        width: 100%;
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font: inherit; font-size: 13.5px;
+        padding: 10px 14px 10px 38px;
+        border-radius: 12px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search input:focus { border-color: #2b6ee0; box-shadow: 0 0 0 3px rgba(43,110,224,0.25); }
+    .search svg {
+        position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+        width: 16px; height: 16px; stroke: var(--text-dim);
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-dim); }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-item .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .dot.offline { background: var(--c-offline); }
+    .dot.idle { background: var(--c-idle); box-shadow: 0 0 8px var(--c-idle-glow); }
+    .dot.ready { background: var(--c-ready); box-shadow: 0 0 8px var(--c-ready-glow); }
+    .dot.talking { background: var(--c-talking); box-shadow: 0 0 8px var(--c-talking-glow); }
+
+    /* ---------- test call ---------- */
+    .testcall {
+        display: flex; flex-wrap: wrap; align-items: center;
+        gap: 12px;
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 16px;
+        margin-bottom: 22px;
+    }
+    .testcall .tc-title {
+        font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.8px; color: var(--text-dim);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .testcall .tc-title::before {
+        content: "";
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #2b6ee0; box-shadow: 0 0 8px rgba(43,110,224,0.6);
+    }
+    .testcall select {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font: inherit; font-size: 13px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        outline: none;
+        max-width: 260px;
+        cursor: pointer;
+    }
+    .testcall select:focus { border-color: #2b6ee0; box-shadow: 0 0 0 3px rgba(43,110,224,0.25); }
+    .testcall button {
+        font: inherit; font-size: 13px; font-weight: 600;
+        padding: 8px 18px;
+        border-radius: 10px;
+        border: 1px solid #2b6ee0;
+        background: rgba(43,110,224,0.16);
+        color: #7ea8f5;
+        cursor: pointer;
+        transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+    .testcall button:hover:not(:disabled) { background: rgba(43,110,224,0.3); box-shadow: 0 0 12px rgba(43,110,224,0.35); }
+    .testcall button:active:not(:disabled) { transform: translateY(1px); }
+    .testcall button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .testcall button.active {
+        border-color: var(--c-talking);
+        background: rgba(239,68,68,0.15);
+        color: #f87171;
+    }
+    .testcall button.active:hover:not(:disabled) { background: rgba(239,68,68,0.3); box-shadow: 0 0 12px var(--c-talking-glow); }
+    .testcall .tc-status {
+        font-size: 12.5px; color: var(--text-dim);
+        font-variant-numeric: tabular-nums;
+        margin-left: auto;
+    }
+    .testcall .tc-status.active { color: var(--c-talking); }
+    .testcall .tc-status .from { color: var(--c-ready); font-weight: 600; }
+
+    /* ---------- grid ---------- */
+    #cgrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 16px;
+    }
+
+    .card {
+        position: relative;
+        background: linear-gradient(160deg, var(--card), #121722);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        overflow: hidden;
+        transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.25s ease;
+        animation: fadeUp 0.35s ease backwards;
+    }
+    .card:hover { transform: translateY(-3px); border-color: var(--card-accent, var(--border)); }
+
+    /* status accent line on top */
+    .card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 3px;
+        background: var(--card-accent, var(--c-offline));
+        box-shadow: 0 0 14px var(--card-glow, transparent);
+    }
+
+    /* glow that lights the whole card by status */
+    .card.idle    { --card-accent: var(--c-idle);    --card-glow: var(--c-idle-glow);    border-color: rgba(34,197,94,0.35); box-shadow: 0 0 22px -6px var(--c-idle-glow), inset 0 0 26px -18px var(--c-idle-glow); }
+    .card.ready   { --card-accent: var(--c-ready);   --card-glow: var(--c-ready-glow);   border-color: rgba(245,158,11,0.35); box-shadow: 0 0 22px -6px var(--c-ready-glow), inset 0 0 26px -18px var(--c-ready-glow); }
+    .card.talking { --card-accent: var(--c-talking); --card-glow: var(--c-talking-glow); border-color: rgba(239,68,68,0.4);  box-shadow: 0 0 26px -6px var(--c-talking-glow), inset 0 0 30px -16px var(--c-talking-glow); animation: fadeUp 0.35s ease backwards, pulse 2s ease-in-out infinite; }
+    .card.offline { opacity: 0.72; filter: saturate(0.55); }
+    .card.offline:hover { opacity: 1; filter: none; }
+
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 22px -6px var(--c-talking-glow), inset 0 0 26px -18px var(--c-talking-glow); }
+        50%      { box-shadow: 0 0 34px -2px var(--c-talking-glow), inset 0 0 34px -12px var(--c-talking-glow); }
+    }
+
+    .card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .card .number {
+        font-size: 24px; font-weight: 800; letter-spacing: 0.5px;
+        font-variant-numeric: tabular-nums;
+    }
+    .card .number .hash { color: var(--text-faint); font-weight: 600; }
+
+    .badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+        padding: 5px 10px; border-radius: 999px;
+        color: var(--badge-fg, var(--text-dim));
+        background: var(--badge-bg, var(--bg-soft));
+        border: 1px solid var(--badge-border, var(--border));
+    }
+    .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--badge-fg, currentColor); box-shadow: 0 0 6px currentColor; }
+    .badge.idle    { --badge-fg: var(--c-idle);    --badge-bg: rgba(34,197,94,0.12);    --badge-border: rgba(34,197,94,0.35); }
+    .badge.ready   { --badge-fg: var(--c-ready);   --badge-bg: rgba(245,158,11,0.12);   --badge-border: rgba(245,158,11,0.35); }
+    .badge.talking { --badge-fg: var(--c-talking); --badge-bg: rgba(239,68,68,0.14);    --badge-border: rgba(239,68,68,0.4); }
+    .badge.offline { --badge-fg: var(--text-dim);  --badge-bg: var(--bg-soft);          --badge-border: var(--border); }
+
+    .address {
+        font-size: 12.5px; color: var(--text-dim);
+        font-family: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+        margin-bottom: 16px;
+    }
+
+    .card .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .card .row:last-child { margin-bottom: 0; }
+
+    .batt {
+        flex: 1; min-width: 0;
+        display: flex; align-items: center; gap: 8px;
+        font-size: 12px; color: var(--text-dim);
+    }
+    .batt .batt-body {
+        position: relative; flex: 1; height: 7px; max-width: 90px;
+        background: #1c2333;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .batt .batt-fill {
+        height: 100%; width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #ef4444, #f59e0b 55%, #22c55e);
+        transition: width 0.5s ease;
+    }
+    .batt .batt-volts { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .seen {
+        font-size: 11.5px; color: var(--text-faint);
+        font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .seen .blink {
+        display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+        background: var(--c-idle); margin-right: 5px;
+        box-shadow: 0 0 6px var(--c-idle-glow);
+        animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-faint);
+        font-size: 15px;
+        border: 1px dashed var(--border);
+        border-radius: 16px;
+    }
+    .empty strong { display: block; font-size: 17px; color: var(--text-dim); margin-bottom: 6px; }
+
+    footer {
+        margin-top: 32px;
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--text-faint);
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="brand">
+        <div class="brand-icon">&#9742;</div>
+        <div>
+            <h1>Telephone Network</h1>
+            <p>Live status monitor</p>
+        </div>
+    </div>
+    <div class="conn offline" id="conn">
+        <span class="pulse-dot"></span>
+        <span id="conn-text">Connecting…</span>
+    </div>
+</header>
+
+<div class="stats">
+    <div class="stat total">
+        <div class="stat-label"><span class="dot"></span>Registered</div>
+        <div class="stat-value" id="stat-total">0</div>
+    </div>
+    <div class="stat online">
+        <div class="stat-label"><span class="dot"></span>Online</div>
+        <div class="stat-value" id="stat-online">0</div>
+    </div>
+    <div class="stat ready">
+        <div class="stat-label"><span class="dot"></span>Ready</div>
+        <div class="stat-value" id="stat-ready">0</div>
+    </div>
+    <div class="stat talking">
+        <div class="stat-label"><span class="dot"></span>Talking</div>
+        <div class="stat-value" id="stat-talking">0</div>
+    </div>
+</div>
+
+<div class="toolbar">
+    <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.2" y2="16.2" />
+        </svg>
+        <input type="text" id="search" placeholder="Search by number or address…" autocomplete="off" />
+    </div>
+    <div class="legend">
+        <span class="legend-item"><span class="dot talking"></span>Talking</span>
+        <span class="legend-item"><span class="dot ready"></span>Ready</span>
+        <span class="legend-item"><span class="dot idle"></span>Idle</span>
+        <span class="legend-item"><span class="dot offline"></span>Offline</span>
+    </div>
+</div>
+
+<div class="testcall">
+    <span class="tc-title">Test call</span>
+    <select id="tc-target" title="Target phone for the test call"></select>
+    <button id="tc-btn" disabled>Start test call</button>
+    <span class="tc-status" id="tc-status"></span>
+</div>
+
+<div id="cgrid">
+    <div class="empty"><strong>Waiting for data…</strong>Phones will appear here as soon as they send their status.</div>
+</div>
+
+<footer>UDP telephony server &middot; dashboard refreshes every 2s</footer>
+
+<script>
+    const PHONE_STATES = {
+        0x00: { key: 'offline', label: 'Offline' },
+        0x10: { key: 'idle',    label: 'Idle'    },
+        0x20: { key: 'ready',   label: 'Ready'   },
+        0x30: { key: 'talking', label: 'Talking' },
+    };
+
+    const cgrid    = document.getElementById('cgrid');
+    const search   = document.getElementById('search');
+    const connEl   = document.getElementById('conn');
+    const connTxt  = document.getElementById('conn-text');
+    const tcTarget = document.getElementById('tc-target');
+    const tcBtn    = document.getElementById('tc-btn');
+    const tcStatus = document.getElementById('tc-status');
+
+    let lastDevices = [];
+    let testCall = null;
+    let filter = '';
+
+    const wsHost = (location.hostname && location.hostname !== '') ? location.hostname : 'localhost';
+    const ws = new WebSocket(`ws://${wsHost}:4912`);
+
+    ws.onopen = () => {
+        connEl.classList.remove('offline');
+        connEl.classList.add('online');
+        connTxt.textContent = 'Live · connected';
+    };
+
+    ws.onclose = () => {
+        connEl.classList.remove('online');
+        connEl.classList.add('offline');
+        connTxt.textContent = 'Disconnected';
+    };
+
+    ws.onerror = () => {
+        connEl.classList.remove('online');
+        connEl.classList.add('offline');
+        connTxt.textContent = 'Connection error';
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            lastDevices = Array.isArray(data) ? data : (data.phones || []);
+            testCall = (data && data.testCall) || null;
+        } catch (e) {
+            console.error('Bad payload from server:', event.data);
+            return;
+        }
+        render();
+    };
+
+    search.addEventListener('input', () => {
+        filter = search.value.trim().toLowerCase();
+        render();
+    });
+
+    tcBtn.addEventListener('click', () => {
+        const active = testCall && testCall.active;
+        if (active) {
+            ws.send(JSON.stringify({ type: 'test-call', action: 'stop' }));
+        } else {
+            const target = parseInt(tcTarget.value, 10);
+            if (!Number.isFinite(target)) return;
+            ws.send(JSON.stringify({ type: 'test-call', action: 'start', target }));
+        }
+    });
+
+    function updateTestCall() {
+        const online = lastDevices.filter(d => stateInfo(d.state).key !== 'offline');
+        const prev = tcTarget.value;
+
+        tcTarget.innerHTML = '';
+        if (online.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = 'No phones online';
+            opt.value = '';
+            tcTarget.appendChild(opt);
+        } else {
+            for (const d of online) {
+                const opt = document.createElement('option');
+                opt.value = d.number;
+                opt.textContent = `№${d.number} · ${d.address}`;
+                tcTarget.appendChild(opt);
+            }
+        }
+        if (prev && [...tcTarget.options].some(o => o.value === prev)) tcTarget.value = prev;
+
+        const active = testCall && testCall.active;
+        tcBtn.textContent = active ? 'Stop test call' : 'Start test call';
+        tcBtn.classList.toggle('active', !!active);
+        tcBtn.disabled = !active && online.length === 0;
+
+        if (active) {
+            const elapsed = Math.max(0, Math.round((Date.now() - (testCall.startedAt || Date.now())) / 1000));
+            tcStatus.classList.add('active');
+            tcStatus.innerHTML =
+                `Playing <span class="from">${testCall.song ?? '—'}</span> to ` +
+                `<span class="from">№${testCall.target}</span> · ${elapsed}s`;
+        } else {
+            tcStatus.classList.remove('active');
+            tcStatus.textContent = online.length === 0
+                ? 'No online phones to call'
+                : 'No active test call';
+        }
+    }
+
+    function formatSeen(lastSeen) {
+        if (lastSeen == null) return 'never seen';
+        const s = Math.round((Date.now() - lastSeen) / 1000);
+        if (s < 0) return 'now';
+        if (s < 60) return `${s}s ago`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m}m ago`;
+        const h = Math.floor(m / 60);
+        return `${h}h ago`;
+    }
+
+    function batteryPct(volts) {
+        if (volts == null) return 0;
+        // Li-ion ~4.2V full, ~3.0V empty
+        return Math.max(0, Math.min(100, Math.round((volts - 3.0) / (4.2 - 3.0) * 100)));
+    }
+
+    function stateInfo(state) {
+        return PHONE_STATES[state] || { key: 'offline', label: `0x${(state ?? 0).toString(16)}` };
+    }
+
+    function matches(device, q) {
+        if (!q) return true;
+        const haystack = `${device.number} ${device.address} ${device.port} ${stateInfo(device.state).label}`.toLowerCase();
+        return haystack.includes(q);
+    }
+
+    function render() {
+        const devices = lastDevices.filter(d => matches(d, filter));
+
+        // ---- stats ----
+        const counts = { offline: 0, idle: 0, ready: 0, talking: 0 };
+        for (const d of lastDevices) {
+            const key = stateInfo(d.state).key;
+            counts[key] = (counts[key] || 0) + 1;
+        }
+        document.getElementById('stat-total').textContent   = lastDevices.length;
+        document.getElementById('stat-online').textContent = lastDevices.length - counts.offline;
+        document.getElementById('stat-ready').textContent  = counts.ready;
+        document.getElementById('stat-talking').textContent = counts.talking;
+
+        // ---- cards ----
+        cgrid.innerHTML = '';
+
+        if (devices.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.innerHTML = lastDevices.length === 0
+                ? '<strong>No phones registered yet</strong>Waiting for the first status packet…'
+                : '<strong>No matches</strong>Nothing matches your search.';
+            cgrid.appendChild(empty);
+            return;
+        }
+
+        devices.forEach((device, i) => {
+            const info = stateInfo(device.state);
+            const seen = formatSeen(device.lastSeen);
+            const pct = batteryPct(device.batteryVolts);
+
+            const card = document.createElement('div');
+            card.className = `card ${info.key}`;
+            card.style.animationDelay = `${Math.min(i * 25, 300)}ms`;
+
+            card.innerHTML = `
+                <div class="card-top">
+                    <div class="number"><span class="hash">№</span>${device.number}</div>
+                    <span class="badge ${info.key}"><span class="dot"></span>${info.label}</span>
+                </div>
+                <div class="address">${device.address || '—'}:${device.port ?? '—'}</div>
+                <div class="row">
+                    <div class="batt">
+                        <span>BAT</span>
+                        <div class="batt-body"><div class="batt-fill" style="width:${pct}%"></div></div>
+                        <span class="batt-volts">${device.batteryVolts != null ? device.batteryVolts.toFixed(2) : '—'}V</span>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="seen"><span class="blink"></span>${seen}</span>
+                </div>
+            `;
+
+            cgrid.appendChild(card);
+        });
+
+        updateTestCall();
+    }
+
+    render();
+</script>
+</body>
+</html>
